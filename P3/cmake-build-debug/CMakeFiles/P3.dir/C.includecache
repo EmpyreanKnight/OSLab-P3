@@ -1,0 +1,30 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/rex/P3/main.c
+stdio.h
+-
+stdlib.h
+-
+mem.h
+/home/rex/P3/mem.h
+
+/home/rex/P3/mem.c
+mem.h
+/home/rex/P3/mem.h
+stdio.h
+-
+fcntl.h
+-
+unistd.h
+-
+sys/mman.h
+-
+
+/home/rex/P3/mem.h
+

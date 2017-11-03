@@ -1,0 +1,3 @@
+/home/rex/P3/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/rex/P3/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/rex/P3/cmake-build-debug/CMakeFiles/P3.dir
