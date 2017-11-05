@@ -1,1 +1,0 @@
-/usr/bin/cc -g   CMakeFiles/P3.dir/main.c.o CMakeFiles/P3.dir/mem.c.o  -o P3 

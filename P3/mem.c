@@ -40,10 +40,10 @@ int round_up(int value, int base) {
     //return (value + base - 1) & ~(base - 1);
 }
 
-// TODO: now when size = space - 8, will have 8-byte fragment
 /* Split the cur pointer if space enough,
  * Remove cur pointer from free list otherwise.
  * Return a Header pointer to allocated space
+ * Notice that when size + 8 = cur->size, the exceed 8-byte will also be allocated
  */
 Header* split_block(Node* pre, Node* cur, int size) {
     if (cur->size >= size + sizeof(Node)) { // split cur
@@ -65,11 +65,12 @@ Header* split_block(Node* pre, Node* cur, int size) {
                 cur->next = cur->next->next;
             }
         }
+        size = cur->size; // solve 8-byte problem
     }
 
     Header* res = (Header*)cur;
+    res->size = size;
     res->magic = MAGIC_NUMBER;
-    res->size = size; // TODO: bug on space+8
     return res;
 }
 
@@ -101,9 +102,17 @@ Header *find_block(int size, int style) {
         cur = cur->next;
         pre = pre == NULL ? head : pre->next;
     }
+
+    if (dst == NULL) { // can not found a suitable space
+        return NULL;
+    }
     return split_block(pre_dst, dst, size);
 }
 
+/* Insert Node pHead to correct position of free list
+ * and merge with left and right neighbour after that
+ * Return 0 when succeed, -1 for unpredicted errors
+ */
 int merge_block(Header* pHead) {
     Node* pNode = (Node*)pHead;
     pNode->size = pHead->size;
@@ -133,6 +142,7 @@ int merge_block(Header* pHead) {
         pNode->size += sizeof(Node) + cur->size;
         pNode->next = cur->next;
     }
+    return 0;
 }
 
 /* Should be called one time by a process using these routines.
@@ -163,6 +173,7 @@ int mem_init(int size_of_region) {
 
     head->next = NULL;
     head->size = size_of_region - sizeof(Node);
+    return 0;
 }
 
 /* Allocates size bytes and returns a pointer to the allocated memory.
@@ -174,7 +185,7 @@ int mem_init(int size_of_region) {
  */
 void *mem_alloc(int size, int style) {
     size = round_up(size, 8); // alignment
-    printf("%d\n", size);
+    //printf("%d\n", size);
     Header *pBlock = find_block(size, style);
     if (pBlock == NULL) {
         m_error = E_NO_SPACE;
@@ -193,7 +204,12 @@ int mem_free(void *ptr) {
         m_error = E_BAD_POINTER;
         return -1;
     }
-    merge_block(pHead);
+    if (merge_block(pHead) == -1) {
+        // insertion point in free list not found
+        m_error = E_CORRUPT_FREESPACE;
+        return -1;
+    }
+    return 0;
 }
 
 /* Debugging routine for developer.
@@ -203,8 +219,9 @@ void mem_dump() {
     printf("Free list:\n");
     Node *cur = head;
     while (cur != NULL) {
-        printf("Block starts from %p: Space = %d, next = %p.\n",
+        printf("Block starts from %p: Space = %10d, next = %p.\n",
                cur, cur->size, cur->next);
         cur = cur->next;
     }
+    puts("");
 }

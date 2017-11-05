@@ -17,9 +17,21 @@ void test() {
     mem_dump();
     mem_free(b);
     mem_dump();
+    b = mem_alloc(192, M_BESTFIT); // 192
+    mem_dump();
+    mem_free(b);
+    mem_dump();
+    b = mem_alloc(184, M_BESTFIT); // 184
+    mem_dump();
+    mem_free(c);
+    mem_dump();
+    c = mem_alloc(15, M_WORSTFIT); // 16
+    mem_dump();
     mem_free(c);
     mem_dump();
     mem_free(a);
+    mem_dump();
+    mem_free(b);
     mem_dump();
 }
 
