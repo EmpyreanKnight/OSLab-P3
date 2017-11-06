@@ -4,29 +4,28 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#define MAGIC_NUMBER 1145141919810
+#define MAGIC_NUMBER 1145141919819
 
 /* A node in free list.
  * next pointer maintains address of the next node in free list
- * prev_size can be used to address its previous node
- * size save free memeory bytes in current block
+ * size save free memory bytes in current block
  */
 typedef struct _Node {
     struct _Node *next;
     int size;
-    // intend to use value than a pointer for the DAMMIT specification limits node size
 } Node;
 
-//TODO: reduce Header size
-/* struct for tracking allocated memory
+/* A header tracking allocated memory.
+ * size field stores allocated memory in bytes
+ * magic field uses a magic number to verify pointer to be freed
  */
 typedef struct _Header {
     int size;
     long magic;
 } Header;
 
-Node *head = NULL; // head of the free list
-int m_error;
+Node *head = NULL; // head of the free list, list is in ascending order of address
+int m_error;       // error type flag
 
 /* Round up the value to the nearest multiple of base, base should greater than 0.
  * Return the round up result.
@@ -40,10 +39,9 @@ int round_up(int value, int base) {
     //return (value + base - 1) & ~(base - 1);
 }
 
-/* Split the cur pointer if space enough,
- * Remove cur pointer from free list otherwise.
+/* Split the cur pointer if space enough, remove cur pointer from free list otherwise.
  * Return a Header pointer to allocated space
- * Notice that when size + 8 = cur->size, the exceed 8-byte will also be allocated
+ * Notice that when size + 8 == cur->size, the exceed 8-byte will also be allocated
  */
 Header* split_block(Node* pre, Node* cur, int size) {
     if (cur->size >= size + sizeof(Node)) { // split cur
@@ -54,7 +52,6 @@ Header* split_block(Node* pre, Node* cur, int size) {
             head = new;
         } else {
             pre->next = new;
-            new->next = cur->next;
         }
     } else { // remove cur
         if (head == cur) {
@@ -88,14 +85,17 @@ Header *find_block(int size, int style) {
         if (cur->size >= size) {
             if (style == M_FIRSTFIT) {
                 dst = cur;
+                pre_dst = pre;
                 break;
             } else if (style == M_BESTFIT) {
                 if (dst == NULL || cur->size < dst->size) {
                     dst = cur;
+                    pre_dst = pre;
                 }
             } else if (style == M_WORSTFIT) {
                 if (dst == NULL || cur->size > dst->size) {
                     dst = cur;
+                    pre_dst = pre;
                 }
             }
         }
@@ -103,7 +103,7 @@ Header *find_block(int size, int style) {
         pre = pre == NULL ? head : pre->next;
     }
 
-    if (dst == NULL) { // can not found a suitable space
+    if (dst == NULL) { // can not find a suitable free space
         return NULL;
     }
     return split_block(pre_dst, dst, size);
@@ -116,14 +116,13 @@ Header *find_block(int size, int style) {
 int merge_block(Header* pHead) {
     Node* pNode = (Node*)pHead;
     pNode->size = pHead->size;
-    //pNode->size = pHead->size;
     Node* pre = NULL;
     Node* cur = head;
     while (cur != NULL && (pNode >= cur || (pre != NULL && pNode <= pre))) {
         cur = cur->next;
         pre = pre == NULL ? head : pre->next;
     }
-    if (cur == NULL) { // insert position not found
+    if (cur == NULL) { // insertion point not found
         return -1;
     }
     if (pre == NULL) {
@@ -133,12 +132,12 @@ int merge_block(Header* pHead) {
     }
     pNode->next = cur;
 
-    if (pre != NULL && pre + pre->size + sizeof(Node) == pNode) { // merge left
+    if (pre != NULL && pre + pre->size + sizeof(Node) == pNode) { // merge with left
         pre->size += sizeof(Node) + pNode->size;
         pre->next = pNode->next;
         pNode = pre;
     }
-    if (pNode + pNode->size + sizeof(Node) == cur) {
+    if (pNode + pNode->size + sizeof(Node) == cur) { // merge with right
         pNode->size += sizeof(Node) + cur->size;
         pNode->next = cur->next;
     }
@@ -177,14 +176,19 @@ int mem_init(int size_of_region) {
 }
 
 /* Allocates size bytes and returns a pointer to the allocated memory.
- * The memory is not cleared.
- * Returns a pointer to the start of that object.
- * Returns NULL if no enough contiguous free space within space allocated by mem_init
+ * The memory will not be cleared automatically.
+ * Returns a pointer to the start position of allocated memory,
+ * returns NULL if no enough contiguous free space or other incorrect usage.
  * The style parameter determines how to look through the list for a free space.
- * For performance reasons, return 8-byte aligned chunks of memory
+ * For performance reasons, return 8-byte aligned chunks of memory.
  */
 void *mem_alloc(int size, int style) {
-    size = round_up(size, 8); // alignment
+    if (size <= 0 || head == NULL) { // wrong argument or use without a mem_init() call
+        m_error = E_BAD_ARGS;
+        return NULL;
+    }
+
+    size = round_up(size, 8); // 8-byte alignment
     //printf("%d\n", size);
     Header *pBlock = find_block(size, style);
     if (pBlock == NULL) {
@@ -199,6 +203,9 @@ void *mem_alloc(int size, int style) {
  * Returns 0 on success, and -1 otherwise.
  */
 int mem_free(void *ptr) {
+    if (ptr == NULL) {
+        return 0;
+    }
     Header* pHead = (Header*)ptr - sizeof(Header);
     if (pHead->magic != MAGIC_NUMBER) {
         m_error = E_BAD_POINTER;
