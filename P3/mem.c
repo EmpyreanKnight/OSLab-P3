@@ -4,8 +4,6 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#define MAGIC_NUMBER 1145141919819
-
 /* A node in free list.
  * next pointer maintains address of the next node in free list
  * size save free memory bytes in current block
@@ -17,11 +15,11 @@ typedef struct _Node {
 
 /* A header tracking allocated memory.
  * size field stores allocated memory in bytes
- * magic field uses a magic number to verify pointer to be freed
+ * magic field uses a pointer, which point to itself, to verify pointer to be freed
  */
 typedef struct _Header {
     int size;
-    long magic;
+    struct _Header* magic;
 } Header;
 
 Node *head = NULL; // head of the free list, list is in ascending order of address
@@ -32,11 +30,14 @@ int m_error;       // error type flag
  * Bitwise version only applicable when base is the power of 2 and value is positive.
  */
 int round_up(int value, int base) {
+    /*
     int remainder = value % base;
-    if (remainder == 0)
+    if (remainder == 0) {
         return value;
+    }
     return value + base - remainder;
-    //return (value + base - 1) & ~(base - 1);
+    */
+    return (value + base - 1) & ~(base - 1);
 }
 
 /* Split the cur pointer if space enough, remove cur pointer from free list otherwise.
@@ -45,7 +46,7 @@ int round_up(int value, int base) {
  */
 Header* split_block(Node* pre, Node* cur, int size) {
     if (cur->size >= size + sizeof(Node)) { // split cur
-        Node* new = cur + sizeof(Node) + size;
+        Node* new = (void*)cur + sizeof(Node) + size;
         new->next = cur->next;
         new->size = cur->size - size - sizeof(Node);
         if (head == cur) {
@@ -67,7 +68,7 @@ Header* split_block(Node* pre, Node* cur, int size) {
 
     Header* res = (Header*)cur;
     res->size = size;
-    res->magic = MAGIC_NUMBER;
+    res->magic = res;
     return res;
 }
 
@@ -122,9 +123,6 @@ int merge_block(Header* pHead) {
         cur = cur->next;
         pre = pre == NULL ? head : pre->next;
     }
-    if (cur == NULL) { // insertion point not found
-        return -1;
-    }
     if (pre == NULL) {
         head = pNode;
     } else {
@@ -132,12 +130,12 @@ int merge_block(Header* pHead) {
     }
     pNode->next = cur;
 
-    if (pre != NULL && pre + pre->size + sizeof(Node) == pNode) { // merge with left
+    if (pre != NULL && (void*)pre + pre->size + sizeof(Node) == pNode) { // merge with left
         pre->size += sizeof(Node) + pNode->size;
         pre->next = pNode->next;
         pNode = pre;
     }
-    if (pNode + pNode->size + sizeof(Node) == cur) { // merge with right
+    if (cur != NULL && (void*)pNode + pNode->size + sizeof(Node) == cur) { // merge with right
         pNode->size += sizeof(Node) + cur->size;
         pNode->next = cur->next;
     }
@@ -189,13 +187,12 @@ void *mem_alloc(int size, int style) {
     }
 
     size = round_up(size, 8); // 8-byte alignment
-    //printf("%d\n", size);
     Header *pBlock = find_block(size, style);
     if (pBlock == NULL) {
         m_error = E_NO_SPACE;
         return NULL;
     }
-    return pBlock + sizeof(Header);
+    return (void*)pBlock + sizeof(Header);
 }
 
 /* Frees the memory object that ptr points to.
@@ -206,8 +203,8 @@ int mem_free(void *ptr) {
     if (ptr == NULL) {
         return 0;
     }
-    Header* pHead = (Header*)ptr - sizeof(Header);
-    if (pHead->magic != MAGIC_NUMBER) {
+    Header* pHead = ptr - sizeof(Header);
+    if (pHead->magic != pHead) {
         m_error = E_BAD_POINTER;
         return -1;
     }
@@ -219,8 +216,8 @@ int mem_free(void *ptr) {
     return 0;
 }
 
-/* Debugging routine for developer.
- * Simply print the regions of free memory to the screen.
+/* Debugging routine for developers.
+ * Simply print the blocks of free memory to screen.
  */
 void mem_dump() {
     printf("Free list:\n");

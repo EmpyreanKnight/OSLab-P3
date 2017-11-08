@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "mem.h"
 
-void test() {
+void test1() {
     if (mem_init(4000) == -1) {
         perror("init");
         printf("Error: %d.\n", m_error);
@@ -71,7 +72,83 @@ void test3() { // test fragment and fit
     mem_free(b); mem_dump();
 }
 
+void test4() { // test read/write and boundary
+    mem_init(4096);
+    mem_dump();
+    int* a = mem_alloc(4080, M_BESTFIT);
+    if (a == NULL) {
+        perror("alloc");
+        exit(1);
+    }
+    mem_dump();
+    a[0] = 114;
+    a[1] = 514;
+    a[508] = 1919;
+    a[509] = 810;
+    printf("%d\n", a[100]);
+    printf("%d%d%d%d\n", a[0], a[1], a[508], a[509]);
+    if (mem_free(a) == -1) {
+        perror("free");
+    }
+    mem_dump();
+}
+
+#define N 100000
+#define MAX_SIZE 1000
+void* ptr[N];
+int order[N];
+int sz[N];
+
+void Fisher_Yates() { // generate a 0 ~ N-1 permutation
+    srand((unsigned)time(0));
+    int i, j, tmp;
+    for (i = 0; i < N; i++) {
+        order[i] = i;
+        sz[i] = rand() % MAX_SIZE;
+    }
+
+    i = N - 1;
+    while(i > 0) {
+        j = rand() % i;
+        tmp = order[i];
+        order[i] = order[j];
+        order[j] = tmp;
+        i--;
+    }
+}
+
+void benchmark1() { // test performance
+    if (mem_init((N+16)*MAX_SIZE) == -1) {
+        perror("Too big!");
+        exit(1);
+    }
+    mem_dump();
+    Fisher_Yates();
+    double begin = clock();
+    int i;
+    for (i = 0; i < N; i++) {
+        ptr[order[i]] = mem_alloc(sz[order[i]], M_FIRSTFIT);
+    }
+    for (i = 0; i < N; i++) {
+        mem_free(ptr[order[i]]);
+    }
+    double end = clock();
+    printf("My malloc: %f\n", (end - begin) / CLOCKS_PER_SEC);
+
+    begin = clock();
+    for (i = 0; i < N; i++) {
+        ptr[order[i]] = malloc(sz[order[i]]);
+    }
+    for (i = 0; i < N; i++) {
+        free(ptr[order[i]]);
+    }
+    end = clock();
+    printf("System malloc: %f\n", (end - begin) / CLOCKS_PER_SEC);
+    mem_dump();
+}
+
 int main() {
-    test3();
+    //test4();
+    benchmark1();
     return 0;
 }
