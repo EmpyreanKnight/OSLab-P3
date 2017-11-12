@@ -10,11 +10,11 @@ void test1() {
         exit(1);
     }
     mem_dump();
-    void* a = mem_alloc(100, M_FIRSTFIT); // 104
+    void *a = mem_alloc(100, M_FIRSTFIT); // 104
     mem_dump();
-    void* b = mem_alloc(200, M_FIRSTFIT); // 200
+    void *b = mem_alloc(200, M_FIRSTFIT); // 200
     mem_dump();
-    void* c = mem_alloc(45, M_FIRSTFIT);  // 48
+    void *c = mem_alloc(45, M_FIRSTFIT);  // 48
     mem_dump();
     mem_free(b);
     mem_dump();
@@ -39,8 +39,8 @@ void test1() {
 void test2() { // test long free list
     mem_init(8000);
     mem_dump();
-    void* a[10];
-    int idx[] = { 2, 5, 4, 3, 8, 9, 1, 6, 0, 7 };
+    void *a[10];
+    int idx[] = {2, 5, 4, 3, 8, 9, 1, 6, 0, 7};
     int i, len = 10;
     for (i = 0; i < len; i++) {
         a[i] = mem_alloc(16, M_BESTFIT);
@@ -53,29 +53,46 @@ void test2() { // test long free list
 }
 
 void test3() { // test fragment and fit
-    mem_init(2000); mem_dump();
-    void* a = mem_alloc(32, M_FIRSTFIT); mem_dump();
-    void* b = mem_alloc(32, M_BESTFIT); mem_dump();
-    void* c = mem_alloc(32, M_WORSTFIT); mem_dump();
-    mem_free(b); mem_dump();
-    b = mem_alloc(24, M_BESTFIT); mem_dump();
-    void* d = mem_alloc(32, M_WORSTFIT); mem_dump();
-    mem_free(c); mem_dump();
-    c = mem_alloc(16, M_BESTFIT); mem_dump();
-    mem_free(b); mem_dump();
-    b = mem_alloc(8, M_BESTFIT); mem_dump();
-    void* e = mem_alloc(8, M_BESTFIT); mem_dump();
-    mem_free(e); mem_dump();
-    mem_free(d); mem_dump();
-    mem_free(c); mem_dump();
-    mem_free(a); mem_dump();
-    mem_free(b); mem_dump();
+    mem_init(2000);
+    mem_dump();
+    void *a = mem_alloc(32, M_FIRSTFIT);
+    mem_dump();
+    void *b = mem_alloc(32, M_BESTFIT);
+    mem_dump();
+    void *c = mem_alloc(32, M_WORSTFIT);
+    mem_dump();
+    mem_free(b);
+    mem_dump();
+    b = mem_alloc(24, M_BESTFIT);
+    mem_dump();
+    void *d = mem_alloc(32, M_WORSTFIT);
+    mem_dump();
+    mem_free(c);
+    mem_dump();
+    c = mem_alloc(16, M_BESTFIT);
+    mem_dump();
+    mem_free(b);
+    mem_dump();
+    b = mem_alloc(8, M_BESTFIT);
+    mem_dump();
+    void *e = mem_alloc(8, M_BESTFIT);
+    mem_dump();
+    mem_free(e);
+    mem_dump();
+    mem_free(d);
+    mem_dump();
+    mem_free(c);
+    mem_dump();
+    mem_free(a);
+    mem_dump();
+    mem_free(b);
+    mem_dump();
 }
 
 void test4() { // test read/write and boundary
     mem_init(4096);
     mem_dump();
-    int* a = mem_alloc(4080, M_BESTFIT);
+    int *a = mem_alloc(4080, M_BESTFIT);
     if (a == NULL) {
         perror("alloc");
         exit(1);
@@ -95,20 +112,20 @@ void test4() { // test read/write and boundary
 
 #define N 100000
 #define MAX_SIZE 1000
-void* ptr[N];
+void *ptr[N];
 int order[N];
 int sz[N];
 
 void Fisher_Yates() { // generate a 0 ~ N-1 permutation
-    srand((unsigned)time(0));
+    srand((unsigned) time(0));
     int i, j, tmp;
     for (i = 0; i < N; i++) {
         order[i] = i;
-        sz[i] = rand() % MAX_SIZE;
+        sz[i] = rand() % MAX_SIZE + 1;
     }
 
     i = N - 1;
-    while(i > 0) {
+    while (i > 0) {
         j = rand() % i;
         tmp = order[i];
         order[i] = order[j];
@@ -118,7 +135,7 @@ void Fisher_Yates() { // generate a 0 ~ N-1 permutation
 }
 
 void benchmark1() { // test performance
-    if (mem_init((N+16)*MAX_SIZE) == -1) {
+    if (mem_init((N + 16) * MAX_SIZE) == -1) {
         perror("Too big!");
         exit(1);
     }

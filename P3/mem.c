@@ -19,11 +19,11 @@ typedef struct _Node {
  */
 typedef struct _Header {
     int size;
-    struct _Header* magic;
+    struct _Header *magic;
 } Header;
 
 Node *head = NULL; // head of the free list, list is in ascending order of address
-int m_error;       // error type flag
+int m_error = 0;   // error type flag
 
 /* Round up the value to the nearest multiple of base, base should greater than 0.
  * Return the round up result.
@@ -44,9 +44,9 @@ int round_up(int value, int base) {
  * Return a Header pointer to allocated space
  * Notice that when size + 8 == cur->size, the exceed 8-byte will also be allocated
  */
-Header* split_block(Node* pre, Node* cur, int size) {
+Header *split_block(Node *pre, Node *cur, int size) {
     if (cur->size >= size + sizeof(Node)) { // split cur
-        Node* new = (void*)cur + sizeof(Node) + size;
+        Node *new = (void *) cur + sizeof(Node) + size;
         new->next = cur->next;
         new->size = cur->size - size - sizeof(Node);
         if (head == cur) {
@@ -65,8 +65,8 @@ Header* split_block(Node* pre, Node* cur, int size) {
         }
         size = cur->size; // solve 8-byte problem
     }
-
-    Header* res = (Header*)cur;
+    // initialize new header
+    Header *res = (Header *) cur;
     res->size = size;
     res->magic = res;
     return res;
@@ -82,8 +82,8 @@ Header *find_block(int size, int style) {
     Node *pre_dst = NULL;
     Node *dst = NULL;
 
-    while (cur != NULL) {
-        if (cur->size >= size) {
+    while (cur != NULL) { // find a suitable block in free list
+        if (cur->size >= size) { // space of the current block is sufficient
             if (style == M_FIRSTFIT) {
                 dst = cur;
                 pre_dst = pre;
@@ -114,15 +114,24 @@ Header *find_block(int size, int style) {
  * and merge with left and right neighbour after that
  * Return 0 when succeed, -1 for unpredicted errors
  */
-int merge_block(Header* pHead) {
-    Node* pNode = (Node*)pHead;
+int merge_block(Header *pHead) {
+    // recover size field of node struct
+    Node *pNode = (Node *) pHead;
     pNode->size = pHead->size;
-    Node* pre = NULL;
-    Node* cur = head;
+
+    Node *pre = NULL;
+    Node *cur = head;
+    // search for insertion position
     while (cur != NULL && (pNode >= cur || (pre != NULL && pNode <= pre))) {
         cur = cur->next;
         pre = pre == NULL ? head : pre->next;
     }
+
+    if (head != NULL && cur == NULL) { // insertion position not found
+        return -1;
+    }
+
+    // insert pNode into free list
     if (pre == NULL) {
         head = pNode;
     } else {
@@ -130,12 +139,12 @@ int merge_block(Header* pHead) {
     }
     pNode->next = cur;
 
-    if (pre != NULL && (void*)pre + pre->size + sizeof(Node) == pNode) { // merge with left
+    if (pre != NULL && (void *) pre + pre->size + sizeof(Node) == pNode) { // merge with left
         pre->size += sizeof(Node) + pNode->size;
         pre->next = pNode->next;
         pNode = pre;
     }
-    if (cur != NULL && (void*)pNode + pNode->size + sizeof(Node) == cur) { // merge with right
+    if (cur != NULL && (void *) pNode + pNode->size + sizeof(Node) == cur) { // merge with right
         pNode->size += sizeof(Node) + cur->size;
         pNode->next = cur->next;
     }
@@ -159,7 +168,7 @@ int mem_init(int size_of_region) {
     size_of_region = round_up(size_of_region, page_size);
 
     int fd = open("/dev/zero", O_RDWR); // open the /dev/zero device
-    head = mmap(NULL, (size_t)size_of_region, PROT_READ | PROT_WRITE,
+    head = mmap(NULL, (size_t) size_of_region, PROT_READ | PROT_WRITE,
                 MAP_ANON | MAP_PRIVATE, fd, 0);
     close(fd);
 
@@ -192,7 +201,7 @@ void *mem_alloc(int size, int style) {
         m_error = E_NO_SPACE;
         return NULL;
     }
-    return (void*)pBlock + sizeof(Header);
+    return (void *) pBlock + sizeof(Header);
 }
 
 /* Frees the memory object that ptr points to.
@@ -203,14 +212,14 @@ int mem_free(void *ptr) {
     if (ptr == NULL) {
         return 0;
     }
-    Header* pHead = ptr - sizeof(Header);
+    Header *pHead = ptr - sizeof(Header);
     if (pHead->magic != pHead) {
         m_error = E_BAD_POINTER;
         return -1;
     }
-    if (merge_block(pHead) == -1) {
-        // insertion point in free list not found
-        m_error = E_CORRUPT_FREESPACE;
+
+    if (merge_block(pHead) == -1) { // failed to insert into free list
+        m_error = E_BAD_POINTER;
         return -1;
     }
     return 0;
