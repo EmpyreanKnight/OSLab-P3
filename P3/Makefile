@@ -1,5 +1,7 @@
-P3: mem.so main.c
-	cc -lmem -L. -o P3 main.c libmem.so -Wall -Werror
+make: mem.so 
+
+mymain:
+	cc -lmem -L. -o myprogram mymain.c libmem.so -Wall -Werror
 	echo "Attention: please type \"export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.\" before execution!"
 
 mem.so: mem.c mem.h

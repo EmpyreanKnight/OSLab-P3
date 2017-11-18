@@ -219,7 +219,7 @@ int mem_free(void *ptr) {
     }
 
     if (merge_block(pHead) == -1) { // failed to insert into free list
-        m_error = E_BAD_POINTER;
+        m_error = E_CORRUPT_FREESPACE;
         return -1;
     }
     return 0;

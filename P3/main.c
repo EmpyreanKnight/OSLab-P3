@@ -147,7 +147,7 @@ void benchmark1() { // test performance
         ptr[order[i]] = mem_alloc(sz[order[i]], M_FIRSTFIT);
     }
     for (i = 0; i < N; i++) {
-        mem_free(ptr[order[i]]);
+        mem_free(ptr[i]);
     }
     double end = clock();
     printf("My malloc: %f\n", (end - begin) / CLOCKS_PER_SEC);
@@ -157,7 +157,7 @@ void benchmark1() { // test performance
         ptr[order[i]] = malloc(sz[order[i]]);
     }
     for (i = 0; i < N; i++) {
-        free(ptr[order[i]]);
+        free(ptr[i]);
     }
     end = clock();
     printf("System malloc: %f\n", (end - begin) / CLOCKS_PER_SEC);
