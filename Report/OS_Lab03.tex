@@ -1,0 +1,297 @@
+\documentclass[12pt]{beamer}
+\title{OSLAB Project 03}
+\author{YaoShunyu  LvYingzhe}
+\institute{10152130255 LvYingzhe}
+\usepackage{beamerthemesplit}
+\usepackage{listings}
+\usepackage{graphicx}
+\usetheme{Pittsburgh}
+\usecolortheme{seagull}
+\usepackage{courier}
+
+\lstset{basicstyle=\ttfamily}
+
+\begin{document}
+\frame{\titlepage}
+
+\section{Design}
+\frame{
+\frametitle{Basic Conceptions}
+\begin{itemize}
+\item Maintain an ordered free list
+\item De-fragmentation after free
+\end{itemize}
+}
+
+\begin{frame}[fragile]
+\frametitle{Metadata}
+\begin{lstlisting}[frame=single]
+typedef struct _Node {
+    struct _Node *next;
+    int size;
+} Node;
+
+typedef struct _Header {
+    int size;
+    struct _Header *magic;
+} Header;
+\end{lstlisting}
+\end{frame}
+
+\subsection{Allocation}
+\frame{
+\frametitle{How Allocation Works?}
+\begin{itemize}
+\item Verify argument
+\item Round up with bitwise operation
+\item Find a suitable block
+\item Split/Remove from free list
+\item Transform into Header and return
+\end{itemize}
+}
+
+\frame{
+\frametitle{Split or Remove?}
+\begin{center}
+\begin{tabular}{c|c}
+\hline
+Condition& Action\\
+\hline
+pNode$\rightarrow$size $\geq$ size + sizeof(Node)& Split\\
+pNode$\rightarrow$size $<$ size + sizeof(Node)& Remove\\
+\hline
+\end{tabular}
+\end{center}
+%\centering{sizeof(Node) = 16 bytes}
+}
+
+\subsection{Free}
+\frame{
+\frametitle{How Free Works?}
+\begin{itemize}
+\item Verify pointer argument
+\item Transform into Node
+\item Insert into free list
+\item Try to merge with left/right neighbour
+\end{itemize}
+}
+
+\subsection{Drawback}
+\frame{
+\frametitle{Dilemma}
+16-byte header can store mere information!\\
+\vspace{2em}
+Free list? Fully connected? We want both!
+}
+
+\section{Another Implementation}
+\frame{
+\frametitle{Design}
+\begin{itemize}
+\item 24-byte Header
+\item Maintain a free list
+\item Link between neighbours
+\end{itemize}
+}
+
+\begin{frame}[fragile]
+\frametitle{24-byte Header}
+\begin{lstlisting}
+typedef struct _Node {
+    struct _Node *free_next;
+    struct _Node *pre;
+    int size;
+} Node;
+\end{lstlisting}
+\end{frame}
+
+\frame{
+\frametitle{Improvement}
+\begin{itemize}
+\item Same allocation speed
+\item Much faster free speed
+\end{itemize}
+}
+
+\section{Performance}
+\subsection{Allocation}
+\begin{frame}[fragile]
+\frametitle{Allocation without Free}
+\begin{lstlisting}
+for i <- 1 to N:
+	ptr[i] = alloc(rand(1, BOUND), STYLE)
+\end{lstlisting}
+\end{frame}
+
+\frame{
+\begin{center}
+\includegraphics[height=18em]{Figure_4.png}
+\end{center}
+}
+
+\frame{
+\frametitle{Conclusion}
+\large
+The allocation is not the bottleneck.
+}
+
+\subsection{Short Free List}
+\begin{frame}[fragile]
+\frametitle{Random Allocation/Free Calls}
+\begin{lstlisting}
+op <- rand(ALLOC, FREE)
+if op = ALLOC:
+	size <- rand(1, BOUND)
+	list.add(alloc(size))
+else if op = FREE and list.size() > 0:
+	index <- rand(list.size())
+	free(list[index])
+	list.remove(index)
+\end{lstlisting}
+\end{frame}
+
+\frame{
+\begin{center}
+\includegraphics[height=18em]{Figure_1.png}
+\end{center}
+}
+
+\frame{
+\frametitle{Conclusion}
+\large{
+Both 16-byte and 24-byte stand the violent test,\\
+despite that system performs better.
+}
+}
+
+\subsection{Allocation Styles}
+\frame{
+\frametitle{Different Allocation Styles}
+\large{
+Same test method as short free list\\
+\vspace{2em}
+Change allocation styles respectively
+}
+}
+
+\frame{
+\begin{center}
+\includegraphics[height=18em]{Figure_5.png}
+\end{center}
+}
+
+\frame{
+\begin{center}
+\includegraphics[height=18em]{Figure_6.png}
+\end{center}
+}
+
+\frame{
+\frametitle{Conclusion}
+\large{
+Performance:\\
+First Fit $>$ Best Fit $>$ Worst Fit
+}
+}
+
+\subsection{Long Free List}
+\begin{frame}[fragile]
+\frametitle{Numerous Free after Allocation}
+\begin{lstlisting}
+indexes <- Fisher_Yates(N)
+for i <- 1 to N:
+	ptr[i] = alloc(rand(1, BOUND))
+for i <- 1 to N:
+	free(ptr[indexes[i]])
+\end{lstlisting}
+\end{frame}
+
+\frame{
+\begin{center}
+\includegraphics[height=18em]{Figure_2.png}
+\end{center}
+}
+
+\frame{
+\begin{center}
+\includegraphics[height=18em]{Figure_3.png}
+\end{center}
+}
+
+\frame{
+\frametitle{Conclusion}
+\large
+When free list is long,\\
+the cost of free for 16-byte version is significant,\\
+while 24-byte version performs like system malloc.
+}
+
+\section{Summary}
+\newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}
+\frame{
+\frametitle{Comparison}
+\begin{center}
+\begin{tabular}{c|c|c|c}
+\hline
+Method& Speed& Fragment& Application\\
+\hline
+\tabincell{c}{Dynamic\\Allocator}& Moderate& \tabincell{c}{Little External\\No Internal}& malloc\\
+\hline
+\tabincell{c}{Buddy\\Allocator}& Fast& \tabincell{c}{Little External\\Much Internal}& jelloc\\
+\hline
+\tabincell{c}{Slab\\Allocator}& Very Fast& \tabincell{c}{No External\\Much Internal}& kalloc\\
+\hline
+\end{tabular}
+\end{center}
+}
+
+\frame{
+\frametitle{Summary}
+\large{
+Balance the cost and gain is the eternal theme.\\
+\vspace{2em}
+Nothing is best, only most suitable.
+}
+}
+
+\frame{
+\frametitle{Fin}
+\Large{Thank you!}
+}
+
+\frame{
+\begin{center}
+\begin{tabular}{c|c}
+\hline
+Condition& Action\\
+\hline
+pNode$\rightarrow$size $\geq$ size+sizeof(Node)& Split\\
+pNode$\rightarrow$size $==$ size + 8& Remove with extra 8-byte\\
+pNode$\rightarrow$size $==$ size& Remove\\
+\hline
+\end{tabular}
+\end{center}
+}
+
+\frame{
+%\frametitle{Example 1}
+\begin{center}
+\includegraphics[height=16em]{P1.png}
+\end{center}
+}
+
+\frame{
+%\frametitle{Example 2}
+\begin{center}
+\includegraphics[height=16em]{P2.png}
+\end{center}
+}
+
+\frame{
+%\frametitle{Example 3}
+\begin{center}
+\includegraphics[height=16em]{P3.png}
+\end{center}
+}
+
+\end{document}
